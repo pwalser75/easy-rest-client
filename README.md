@@ -63,7 +63,7 @@ The instance for this client would be created as follows:
 
 ```java
 HttpClient httpClient = HttpClient.newBuilder().build();
-String baseUrl="https://test.org";
+String baseUrl = "https://test.org";
 
 HelloClient helloClient = RestClient.build(httpClient, baseUrl, HelloClient.class);
 ```

@@ -57,7 +57,6 @@ ext {
     libs = [
             runtime: [
                     "javax.ws.rs:javax.ws.rs-api:$jaxrsVersion",
-                    "jakarta.annotation:jakarta.annotation-api:$jakartaAnnotationVersion",
                     "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion",
                     "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
                     "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion",

@@ -31,7 +31,7 @@ public class HelloClientTest {
 
     @BeforeEach
     void init() {
-        baseUrl = String.format("https://localhost:%d/", port);
+        baseUrl = String.format("http://localhost:%d/", port);
         log.info("BASE URL: " + baseUrl);
     }
 
