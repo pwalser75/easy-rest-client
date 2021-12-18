@@ -1,21 +1,20 @@
 # Easy Rest Client
 
-:construction: INCUBATION PROJECT - UNDER CONSTRUCTION - NOT FUNCTIONAL YET
+:construction: **INCUBATION PROJECT** - :warning: *NOT FUNCTIONAL YET*
 
-A new approach on writing REST web service clients using declarative interfaces with JAX-RS annotations.
+**A new approach on writing REST web service clients using declarative interfaces with JAX-RS annotations.**
 
 ## Idea
 
-This project was inspired by the way Spring Data Repositories are used: An interface serves as a contract, and the
+This project was inspired by the way *Spring Data Repositories* are used: an interface serves as a contract, and the
 actual implementation is a Java Proxy backed by an Invocation Handler which provides the implementation dynamically
 based on the contract.
 
 The idea for the Easy Rest Client is as follows:
 
-- For a rest client, an interface defining the operations (corresponding 1:1 with the hypothetical endpoint) is defined,
-  using web service annotations.
-- A factory method creates an implementation of a rest client, given that interface, a base URL and a web client.
-- The implementation will be a `Proxy` backed by a `InvocationHandler` (package: `java.lang.reflect`)
+- For a rest client, an **interface** defining the connecting endpoint is defined, using web service **annotations**.
+- A **factory** method creates an implementation of a rest client, given that interface, a base URL and a web client.
+- The **implementation** will be a `Proxy` backed by a `InvocationHandler` (package: `java.lang.reflect`)
 
 ## Technology choices
 
