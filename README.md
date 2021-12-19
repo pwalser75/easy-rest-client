@@ -26,36 +26,72 @@ The idea for the Easy Rest Client is as follows:
 
 ## JAX-RS Annotation Support
 
-The following JAX-RS annotiations (package: `javax.ws.rs`) are supported:
+The following JAX-RS annotiations (package: `javax.ws.rs`) are already supported:
 
-- [ ] `@GET`
-- [ ] `@POST`
-- [ ] `@PUT`
-- [ ] `@DELETE`
-- [ ] `@Consumes`
-- [ ] `@Produces`
-- [ ] `@PathParam`
-- [ ] `@QueryParam`
-- [ ] `@FormParam`
-- [ ] `@HeaderParam`
+- [x] `@Path` (on class or method)
+- [x] `@GET` (on method)
+- [x] `@POST` (on method)
+- [x] `@PUT` (on method)
+- [x] `@DELETE` (on method)
+- [x] `@Consumes` (on method)
+- [x] `@Produces` (on method)
+- [x] `@PathParam` (on method)
+- [x] `@QueryParam` (on method)
+- [ ] `@FormParam` (on method)
+- [ ] `@HeaderParam` (on method)
 
 ## Example Usage
 
-### GET example
+Let's say we want to use the following REST web service for reading and writing simple notes (as JSON):
 
-Let's write a REST client for the following endpoint: <br>
-`GET https://test.org/hello/{lang}?name={name}`
+![](notes-rest-api.png)
 
-This endpoint has path parameter for the language (ISO code) and expects a name using a query parameter. It would
-respond with a plain text message, greeting the user by name in the selected language. The appropriate interface would
-look like this:
+On the client side, we need to create
+- the required DTOs for the requests and responses
+- the service contract interface for the client, annotated with JAX-RS annotations
+
+### DTO (Note)
 
 ```java
-public interface HelloClient {
+public class Note {
+
+    private Long id;
+    private OffsetDateTime created;
+    private OffsetDateTime lastModified;
+    private String text;
+
+    // getters, setters, equals and hash code omitted
+}
+```
+
+### Service Contract Interface
+
+```java
+@Path("api/notes")
+public interface NotesClient {
+
     @GET
-    @Path("hello/{lang}")
-    @Produces(MediaType.TEXT_PLAIN)
-    String hello(@PathParam("lang") String lang, @QueryParam("name") String name);
+    @Produces(MediaType.APPLICATION_JSON)
+    List<Note> list();
+
+    @GET
+    @Path("/{id}")
+    @Produces(MediaType.APPLICATION_JSON)
+    Note get(@PathParam("id") long id);
+
+    @POST
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    Note create(Note note);
+
+    @PUT
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    void update(@PathParam("id") long id, Note note);
+
+    @DELETE
+    @Path("/{id}")
+    void delete(@PathParam("id") long id);
 }
 ```
 
@@ -65,18 +101,33 @@ The instance for this client would be created as follows:
 HttpClient httpClient = HttpClient.newBuilder().build();
 String baseUrl = "https://test.org";
 
-HelloClient helloClient = RestClient.build(httpClient, baseUrl, HelloClient.class);
+NotesClient notesClient = RestClient.build(httpClient, baseUrl, NotesClient.class);
 ```
+
+:magic_wand: This instance is a **proxy** for the service contract interface, backed by an **invocation handler** which processes the HTTP requests.
 
 Using the client is then plain simple:
 
 ```java
-String message = helloClient.hello("en", "Alastor Moody");
+Note note = new Note();
+note.setText("Aloha");
+
+// create
+Note created = notesClient.create(note);
+
+// read
+Note loaded = notesClient.get(id);
+
+// list
+List<Note> notes = notesClient.list();
+
+// update
+note.setText("Lorem ipsum dolor sit amet");
+notesClient.update(note.getId(), note);
+
+// delete
+notesClient.delete(id);
 ```
-
-### POST example
-
-*TODO*
 
 ## Build
 
