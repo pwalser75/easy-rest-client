@@ -1,4 +1,4 @@
-package ch.frostnova.web.eastrestclient;
+package ch.frostnova.web.eastrestclient.converter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
