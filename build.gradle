@@ -59,6 +59,7 @@ ext {
                     "com.fasterxml.jackson.core:jackson-annotations:$jacksonVersion",
                     "com.fasterxml.jackson.core:jackson-databind:$jacksonVersion",
                     "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:$jacksonVersion",
+                    "com.fasterxml.jackson.dataformat:jackson-dataformat-xml:${jacksonVersion}",
             ],
             test           : [
                     "org.junit.jupiter:junit-jupiter-api:$junitVersion",

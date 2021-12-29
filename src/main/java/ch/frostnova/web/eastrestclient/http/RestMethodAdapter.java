@@ -17,6 +17,7 @@ import javax.ws.rs.QueryParam;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
+import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -34,11 +35,14 @@ public class RestMethodAdapter {
     private Logger logger = LoggerFactory.getLogger(RestMethodAdapter.class);
 
     private final Method method;
+    private final Type returnType;
     private final RequestMethod requestMethod;
     private final RestMethodArgument[] arguments;
 
     public RestMethodAdapter(Method method) {
         this.method = method;
+        returnType = method.getGenericReturnType();
+
         requestMethod = determineRequestMethod(method);
 
         Parameter[] parameters = method.getParameters();
@@ -48,7 +52,7 @@ public class RestMethodAdapter {
         for (int i = 0; i < parameters.length; i++) {
             arguments[i] = toArgument(i, parameterAnnotations[i]);
         }
-        logger.info("bound {} @{} {}.{}({}) -> {}", method.getGenericReturnType(), requestMethod,
+        logger.info("bound @{} {}.{}({}) -> {}", requestMethod,
                 method.getDeclaringClass().getSimpleName(), method.getName(),
                 Arrays.stream(arguments).map(String::valueOf).collect(joining(", ")));
     }
@@ -114,30 +118,30 @@ public class RestMethodAdapter {
     }
 
     public Object invoke(RestAdapter restAdapter, String baseUrl, Object[] methodCallArguments) throws Throwable {
-        Class<?> returnType = method.getReturnType();
-
         Map<String, String> pathParameters = new HashMap<>();
         Map<String, String> queryParameters = new HashMap<>();
         Object body = null;
 
-        for (int i = 0; i < methodCallArguments.length; i++) {
-            RestMethodArgument argument = arguments[i];
-            Object value = methodCallArguments[i];
-            if (value != null) {
-                if (argument.getType() == RestMethodArgumentType.HEADER_PARAM) {
-                    // TODO
-                }
-                if (argument.getType() == RestMethodArgumentType.PATH_PARAM) {
-                    pathParameters.put(argument.getName(), String.valueOf(value));
-                }
-                if (argument.getType() == RestMethodArgumentType.QUERY_PARAM) {
-                    queryParameters.put(argument.getName(), String.valueOf(value));
-                }
-                if (argument.getType() == RestMethodArgumentType.FORM_PARAM) {
-                    // TODO
-                }
-                if (argument.getType() == RestMethodArgumentType.BODY) {
-                    body = value;
+        if (methodCallArguments != null) {
+            for (int i = 0; i < methodCallArguments.length; i++) {
+                RestMethodArgument argument = arguments[i];
+                Object value = methodCallArguments[i];
+                if (value != null) {
+                    if (argument.getType() == RestMethodArgumentType.HEADER_PARAM) {
+                        // TODO
+                    }
+                    if (argument.getType() == RestMethodArgumentType.PATH_PARAM) {
+                        pathParameters.put(argument.getName(), String.valueOf(value));
+                    }
+                    if (argument.getType() == RestMethodArgumentType.QUERY_PARAM) {
+                        queryParameters.put(argument.getName(), String.valueOf(value));
+                    }
+                    if (argument.getType() == RestMethodArgumentType.FORM_PARAM) {
+                        // TODO
+                    }
+                    if (argument.getType() == RestMethodArgumentType.BODY) {
+                        body = value;
+                    }
                 }
             }
         }

@@ -1,4 +1,4 @@
-package ch.frostnova.web.eastrestclient.notes;
+package ch.frostnova.web.eastrestclient.notes.api;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

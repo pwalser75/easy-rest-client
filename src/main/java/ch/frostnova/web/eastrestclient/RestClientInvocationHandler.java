@@ -25,16 +25,14 @@ class RestClientInvocationHandler implements InvocationHandler {
         return proxy;
     }
 
-    private final HttpClient httpClient;
     private final String baseURL;
     private final RestClientInterface<?> restClientInterface;
     private final RestAdapter restAdapter;
 
     private RestClientInvocationHandler(HttpClient httpClient, String baseURL, Class<?> restClientInterfaceClass) {
-        this.httpClient = httpClient;
         this.baseURL = baseURL;
 
-        restAdapter = new RestAdapter(httpClient, ObjectMappers.json());
+        restAdapter = new RestAdapter(httpClient, ObjectMappers.json(), ObjectMappers.xml());
         restClientInterface = new RestClientInterface(restClientInterfaceClass);
     }
 

@@ -1,4 +1,6 @@
-package ch.frostnova.web.eastrestclient.notes;
+package ch.frostnova.web.eastrestclient.notes.backend;
+
+import ch.frostnova.web.eastrestclient.notes.api.Note;
 
 import java.util.List;
 

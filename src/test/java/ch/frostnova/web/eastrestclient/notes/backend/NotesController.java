@@ -1,5 +1,6 @@
-package ch.frostnova.web.eastrestclient.notes;
+package ch.frostnova.web.eastrestclient.notes.backend;
 
+import ch.frostnova.web.eastrestclient.notes.api.Note;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;

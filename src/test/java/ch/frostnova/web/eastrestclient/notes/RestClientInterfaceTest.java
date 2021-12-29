@@ -1,6 +1,7 @@
 package ch.frostnova.web.eastrestclient.notes;
 
 import ch.frostnova.web.eastrestclient.http.RestClientInterface;
+import ch.frostnova.web.eastrestclient.notes.api.NotesClient;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -9,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 
 public class RestClientInterfaceTest {
-    
+
     @Test
     void shouldScanAndBindMethods() {
 

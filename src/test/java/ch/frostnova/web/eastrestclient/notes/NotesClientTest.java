@@ -2,6 +2,8 @@ package ch.frostnova.web.eastrestclient.notes;
 
 
 import ch.frostnova.web.eastrestclient.RestClient;
+import ch.frostnova.web.eastrestclient.notes.api.Note;
+import ch.frostnova.web.eastrestclient.notes.api.NotesClient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -65,8 +67,8 @@ public class NotesClientTest {
         assertThat(loaded.getText()).isEqualTo(note.getText());
 
         // list
-        // TODO: support collection types (type reference)
-        //   assertThat(notesClient.list()).anySatisfy(n -> assertThat(n.getId())).isEqualTo(id);
+        assertThat(notesClient.list()).isNotEmpty();
+        assertThat(notesClient.list()).extracting(Note::getId).contains(id);
 
         // update
         note.setText("Lorem ipsum dolor sit amet");
@@ -84,7 +86,7 @@ public class NotesClientTest {
         notesClient.delete(id);
 
         // must not be found afterwards
-        //    assertThat(notesClient.list()).noneSatisfy(n -> assertThat(n.getId())).isEqualTo(id);
+        assertThat(notesClient.list()).extracting(Note::getId).doesNotContain(id);
         assertThatThrownBy(() -> notesClient.get(id)).isInstanceOf(NoSuchElementException.class);
     }
 }
