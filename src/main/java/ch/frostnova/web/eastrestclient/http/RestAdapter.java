@@ -8,7 +8,6 @@ import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
-import javax.ws.rs.core.MediaType;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -16,9 +15,11 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Arrays;
-import java.util.NoSuchElementException;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
+import static javax.ws.rs.core.MediaType.APPLICATION_XML;
 
 public class RestAdapter {
 
@@ -38,16 +39,16 @@ public class RestAdapter {
         if (body == null) {
             return null;
         }
-        if (Arrays.stream(consumes.value()).anyMatch(mediaType -> mediaType.equals(MediaType.APPLICATION_JSON))) {
+        if (Arrays.stream(consumes.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_JSON))) {
             return json.writeValueAsString(body);
         }
-        if (Arrays.stream(consumes.value()).anyMatch(mediaType -> mediaType.equals(MediaType.APPLICATION_XML))) {
+        if (Arrays.stream(consumes.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_XML))) {
             return xml.writeValueAsString(body);
         }
         return String.valueOf(body);
     }
 
-    public <B, T> T invoke(RequestMethod method, URI uri,
+    public <B, T> T invoke(RequestMethod method, URI uri, Map<String, String> headers,
                            Consumes consumes, Produces produces,
                            B body, Type returnType) throws IOException, InterruptedException {
 
@@ -74,6 +75,7 @@ public class RestAdapter {
         if (method == RequestMethod.DELETE) {
             requestBuilder.DELETE();
         }
+        headers.forEach(requestBuilder::header);
 
         HttpRequest request = requestBuilder.build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
@@ -83,56 +85,28 @@ public class RestAdapter {
         if (plain != null && plain.length() > 0) {
             logger.info("{}", plain);
         }
-        checkResponseStatus(response);
-
-        if (String.class.equals(returnType)) {
-            return (T) plain;
+        HttpErrorHandler.checkResponse(response);
+        if (plain == null || plain.length() == 0) {
+            return null;
         }
+
         if (Void.class.equals(returnType)) {
             return null;
+        }
+        if (String.class.equals(returnType)) {
+            return (T) plain;
         }
         if (produces == null) {
             return null;
         }
-        if (Arrays.stream(produces.value()).anyMatch(mediaType -> mediaType.equals(MediaType.APPLICATION_JSON))) {
-            if (plain == null || plain.length() == 0) {
-                return null;
-            }
+        if (Arrays.stream(produces.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_JSON))) {
             JavaType javaType = json.getTypeFactory().constructType(returnType);
             return json.readValue(plain, javaType);
         }
-        if (Arrays.stream(produces.value()).anyMatch(mediaType -> mediaType.equals(MediaType.APPLICATION_XML))) {
-            if (plain == null || plain.length() == 0) {
-                return null;
-            }
+        if (Arrays.stream(produces.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_XML))) {
             JavaType javaType = xml.getTypeFactory().constructType(returnType);
             return xml.readValue(plain, javaType);
         }
         throw new UnsupportedOperationException("unknown or unsupported media type: " + produces + ", " + returnType);
-    }
-
-    private void checkResponseStatus(HttpResponse<?> response) {
-        int status = response.statusCode();
-        if (status == 404) {
-            throw new NoSuchElementException(status + " NOT FOUND");
-        }
-        if (status == 401) {
-            throw new SecurityException(status + " AUTHENTICATION REQUIRED");
-        }
-        if (status == 403) {
-            throw new SecurityException(status + " UNAUTHORIZED");
-        }
-        if (status == 404) {
-            throw new NoSuchElementException(status + " NOT FOUND");
-        }
-        if (status / 100 == 4) {
-            throw new RuntimeException(status + " CLIENT ERROR");
-        }
-        if (status / 100 == 5) {
-            throw new RuntimeException(status + " SERVER ERROR");
-        }
-        if (status < 100 || status > 599) {
-            throw new RuntimeException(status + " UNKNOWN ERROR");
-        }
     }
 }

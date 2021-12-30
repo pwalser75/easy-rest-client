@@ -118,6 +118,7 @@ public class RestMethodAdapter {
     }
 
     public Object invoke(RestAdapter restAdapter, String baseUrl, Object[] methodCallArguments) throws Throwable {
+        Map<String, String> requestHeaders = new HashMap<>();
         Map<String, String> pathParameters = new HashMap<>();
         Map<String, String> queryParameters = new HashMap<>();
         Object body = null;
@@ -128,7 +129,7 @@ public class RestMethodAdapter {
                 Object value = methodCallArguments[i];
                 if (value != null) {
                     if (argument.getType() == RestMethodArgumentType.HEADER_PARAM) {
-                        // TODO
+                        requestHeaders.put(argument.getName(), String.valueOf(value));
                     }
                     if (argument.getType() == RestMethodArgumentType.PATH_PARAM) {
                         pathParameters.put(argument.getName(), String.valueOf(value));
@@ -176,7 +177,7 @@ public class RestMethodAdapter {
         // TODO: check if the path is present, otherwise throw an exception.
         // TODO: also consider path as class annotation (counts as base plus optional method path)
 
-        return restAdapter.invoke(requestMethod, new URI(uriString), consumes, produces, body, returnType);
+        return restAdapter.invoke(requestMethod, new URI(uriString), requestHeaders, consumes, produces, body, returnType);
     }
 
 

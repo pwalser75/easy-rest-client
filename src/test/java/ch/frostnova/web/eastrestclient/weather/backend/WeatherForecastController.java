@@ -6,6 +6,7 @@ import ch.frostnova.web.eastrestclient.weather.api.WeatherForecast;
 import ch.frostnova.web.eastrestclient.weather.api.WeatherForecastDay;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,8 +27,12 @@ import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
 public class WeatherForecastController {
 
     @GetMapping(path = "forecast", produces = APPLICATION_XML_VALUE)
-    public WeatherForecast get(@RequestParam("location") String location) {
+    public WeatherForecast get(@RequestHeader(value = "api-key", required = false) String apiKey,
+                               @RequestParam("location") String location) {
 
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new SecurityException("Access denied, api-key is required");
+        }
         WeatherForecast weatherForecast = new WeatherForecast();
         weatherForecast.setLocation(location);
         Random random = ThreadLocalRandom.current();

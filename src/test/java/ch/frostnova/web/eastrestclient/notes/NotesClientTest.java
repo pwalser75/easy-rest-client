@@ -13,9 +13,9 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import javax.ws.rs.NotFoundException;
 import java.net.http.HttpClient;
 import java.time.Duration;
-import java.util.NoSuchElementException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -87,6 +87,6 @@ public class NotesClientTest {
 
         // must not be found afterwards
         assertThat(notesClient.list()).extracting(Note::getId).doesNotContain(id);
-        assertThatThrownBy(() -> notesClient.get(id)).isInstanceOf(NoSuchElementException.class);
+        assertThatThrownBy(() -> notesClient.get(id)).isInstanceOf(NotFoundException.class);
     }
 }

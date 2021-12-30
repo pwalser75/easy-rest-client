@@ -37,8 +37,15 @@ The following JAX-RS annotiations (package: `javax.ws.rs`) are already supported
 - [x] `@Produces` (on method)
 - [x] `@PathParam` (on method)
 - [x] `@QueryParam` (on method)
+- [x] `@HeaderParam` (on method)
 - [ ] `@FormParam` (on method)
-- [ ] `@HeaderParam` (on method)
+
+Supported content types:
+- [x] JSON (`application/json`)
+- [x] XML (`application/json`)
+- [x] TEXT (`text/plain`)
+- [ ] Multipart/Form data
+- [ ] Binary formats
 
 ## Example Usage
 

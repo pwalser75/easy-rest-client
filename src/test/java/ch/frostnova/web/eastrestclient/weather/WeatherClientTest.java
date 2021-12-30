@@ -14,10 +14,13 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import javax.ws.rs.NotAuthorizedException;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * Weather client test
@@ -48,7 +51,8 @@ public class WeatherClientTest {
     @Test
     void shouldGetWeatherForecast() {
 
-        WeatherForecast weatherForecast = weatherClient.getForecast("Winterthur");
+        String apiKey = UUID.randomUUID().toString();
+        WeatherForecast weatherForecast = weatherClient.getForecast(apiKey, "Winterthur");
 
         assertThat(weatherForecast).isNotNull();
         assertThat(weatherForecast.getLocation()).isEqualTo("Winterthur");
@@ -63,5 +67,10 @@ public class WeatherClientTest {
         for (WeatherForecastDay weatherForecastDay : weatherForecast.getDays()) {
             System.out.printf("- %s: %s, %s\n", weatherForecastDay.getLocalDate(), weatherForecastDay.getCondition(), weatherForecastDay.getTemperature());
         }
+    }
+
+    @Test
+    void shouldThrowUnauthorizedExceptionWhenApiKeyIsMissing() {
+        assertThatThrownBy(() -> weatherClient.getForecast(null, "Winterthur")).isInstanceOf(NotAuthorizedException.class);
     }
 }
