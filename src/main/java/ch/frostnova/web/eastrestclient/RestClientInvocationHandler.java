@@ -8,21 +8,24 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.net.http.HttpClient;
+import java.util.HashMap;
+import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
 class RestClientInvocationHandler implements InvocationHandler {
+
+    private final static Map<Class<?>, RestClientInterface> knownRestClientInterfaces = new HashMap<>();
 
     public static <T> T create(HttpClient httpClient, String baseURL, Class<T> restClientInterface) {
         requireNonNull(httpClient, "httpClient is required");
         requireNonNull(baseURL, "baseURL is required");
         requireNonNull(restClientInterface, "restClientInterface is required");
 
-        T proxy = (T) Proxy.newProxyInstance(
+        return (T) Proxy.newProxyInstance(
                 restClientInterface.getClassLoader(),
                 new Class[]{restClientInterface},
                 new RestClientInvocationHandler(httpClient, baseURL, restClientInterface));
-        return proxy;
     }
 
     private final String baseURL;
@@ -33,7 +36,7 @@ class RestClientInvocationHandler implements InvocationHandler {
         this.baseURL = baseURL;
 
         restAdapter = new RestAdapter(httpClient, ObjectMappers.json(), ObjectMappers.xml());
-        restClientInterface = new RestClientInterface(restClientInterfaceClass);
+        restClientInterface = knownRestClientInterfaces.computeIfAbsent(restClientInterfaceClass, RestClientInterface::new);
     }
 
     @Override
