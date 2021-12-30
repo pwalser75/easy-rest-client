@@ -3,6 +3,7 @@ package ch.frostnova.web.eastrestclient.notes.backend;
 import ch.frostnova.web.eastrestclient.notes.api.Note;
 import org.springframework.stereotype.Service;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -29,11 +30,20 @@ public class NoteServiceImpl implements NoteService {
 
     @Override
     public Note save(Note note) {
-        if (note.getId() == null) {
-            note.setId((long) sequence.getAndIncrement());
+
+        Note record;
+        OffsetDateTime now = OffsetDateTime.now();
+        if (note.getId() != null) {
+            record = get(note.getId());
+        } else {
+            record = new Note();
+            record.setId((long) sequence.getAndIncrement());
+            record.setCreated(now);
         }
-        repository.put(note.getId(), note);
-        return note;
+        record.setText(note.getText());
+        record.setUpdated(now);
+        repository.put(record.getId(), record);
+        return record;
     }
 
     @Override

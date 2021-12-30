@@ -14,6 +14,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
+import javax.ws.rs.BadRequestException;
+import javax.ws.rs.NotAllowedException;
 import javax.ws.rs.NotAuthorizedException;
 import java.net.http.HttpClient;
 import java.time.Duration;
@@ -71,6 +73,17 @@ public class WeatherClientTest {
 
     @Test
     void shouldThrowUnauthorizedExceptionWhenApiKeyIsMissing() {
-        assertThatThrownBy(() -> weatherClient.getForecast(null, "Winterthur")).isInstanceOf(NotAuthorizedException.class);
+        assertThatThrownBy(() -> weatherClient.getForecast(null, "Winterthur")).isInstanceOfSatisfying(NotAuthorizedException.class, ex
+                -> assertThat(ex.getMessage()).isEqualTo("Access denied, api-key is required"));
+    }
+
+    @Test
+    void shouldThrowBadRequestExceptionWhenLocationIsMissing() {
+        assertThatThrownBy(() -> weatherClient.getForecast(UUID.randomUUID().toString(), null)).isInstanceOf(BadRequestException.class);
+    }
+
+    @Test
+    void shouldThrowMethodNotAllowedExceptionWhenTryingToDeleteForecast() {
+        assertThatThrownBy(() -> weatherClient.deleteForecast()).isInstanceOf(NotAllowedException.class);
     }
 }

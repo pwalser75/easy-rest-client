@@ -64,7 +64,7 @@ public class Note {
 
     private Long id;
     private OffsetDateTime created;
-    private OffsetDateTime lastModified;
+    private OffsetDateTime updated;
     private String text;
 
     // getters, setters, equals and hash code omitted
@@ -136,6 +136,25 @@ notesClient.update(note.getId(), note);
 notesClient.delete(id);
 ```
 
+## Logging
+
+The `RestAdapter` will log (over **SLF4J**) all requests and their responses using a **request sequence number** (so the request and response data can be correlated in the log even when multiple requests are performed concurrently), and indicate whether the communication was outbound (`>`) or inbound (`<`).
+
+```text
+2021-12-30 12:34:56.797  INFO  RestAdapter  : 1 > POST http://localhost:32999/api/notes
+2021-12-30 12:34:56.711  INFO  RestAdapter  : 1 > {"text":"Aloha"}
+2021-12-30 12:34:56.701  INFO  RestAdapter  : 1 < 201 Created
+2021-12-30 12:34:56.702  INFO  RestAdapter  : 1 < {"id":1000,"created":"2021-12-30T13:44:08.684402+01:00","updated":"2021-12-30T13:44:08.684402+01:00","text":"Aloha"}
+
+2021-12-30 12:34:56.709  INFO  RestAdapter  : 2 > POST http://localhost:32999/api/notes
+2021-12-30 12:34:56.709  INFO  RestAdapter  : 2 > {"text":"Another Note"}
+2021-12-30 12:34:56.713  INFO  RestAdapter  : 2 < 201 Created
+2021-12-30 12:34:56.713  INFO  RestAdapter  : 2 < {"id":1001,"created":"2021-12-30T13:44:08.711746+01:00","updated":"2021-12-30T13:44:08.711746+01:00","text":"Another Note"}
+
+2021-12-30 12:34:56.713  INFO  RestAdapter  : 3 > GET http://localhost:32999/api/notes/1000
+2021-12-30 12:34:56.717  INFO  RestAdapter  : 3 < 200 OK
+2021-12-30 12:34:56.717  INFO  RestAdapter  : 3 < {"id":1000,"created":"2021-12-30T13:44:08.684402+01:00","updated":"2021-12-30T13:44:08.684402+01:00","text":"Aloha"}
+```
 ## Build
 
 Build with Gradle Wrapper:

@@ -1,5 +1,6 @@
 package ch.frostnova.web.eastrestclient.weather.api;
 
+import javax.ws.rs.DELETE;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
 import javax.ws.rs.Path;
@@ -14,4 +15,9 @@ public interface WeatherClient {
     @Path("forecast")
     @Produces(MediaType.APPLICATION_XML)
     WeatherForecast getForecast(@HeaderParam("api-key") String apiKey, @QueryParam("location") String location);
+
+
+    @DELETE
+    @Path("forecast")
+    void deleteForecast();
 }

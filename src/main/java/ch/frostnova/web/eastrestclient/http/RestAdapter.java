@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.Produces;
+import javax.ws.rs.core.Response;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
@@ -16,12 +17,15 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 import static javax.ws.rs.core.MediaType.APPLICATION_XML;
 
 public class RestAdapter {
+
+    private final static AtomicInteger requestSequence = new AtomicInteger();
 
     private final static Logger logger = LoggerFactory.getLogger(RestAdapter.class);
 
@@ -52,12 +56,14 @@ public class RestAdapter {
                            Consumes consumes, Produces produces,
                            B body, Type returnType) throws IOException, InterruptedException {
 
-        logger.info(">> {} {}", method, uri);
+        int sequenceId = requestSequence.incrementAndGet();
+
+        logger.info("{} > {} {}", sequenceId, method, uri);
 
         String serializedBody = serializeBody(body, consumes);
 
         if (serializedBody != null) {
-            logger.info("{}", serializedBody);
+            logger.info("{} > {}", sequenceId, serializedBody);
         }
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(uri);
@@ -80,10 +86,11 @@ public class RestAdapter {
         HttpRequest request = requestBuilder.build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-        logger.info("<< {}", response.statusCode());
+
+        logger.info("{} < {} {}", sequenceId, response.statusCode(), Response.Status.fromStatusCode(response.statusCode()));
         String plain = response.body();
         if (plain != null && plain.length() > 0) {
-            logger.info("{}", plain);
+            logger.info("{} < {}", sequenceId, plain);
         }
         HttpErrorHandler.checkResponse(response);
         if (plain == null || plain.length() == 0) {

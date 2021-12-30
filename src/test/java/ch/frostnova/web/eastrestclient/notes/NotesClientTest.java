@@ -16,7 +16,9 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import javax.ws.rs.NotFoundException;
 import java.net.http.HttpClient;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 
+import static java.time.OffsetDateTime.now;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -56,28 +58,36 @@ public class NotesClientTest {
         Note created = notesClient.create(note);
         assertThat(created).isNotNull();
         assertThat(created.getId()).isNotNull();
+        assertThat(created.getCreated()).isNotNull().isBeforeOrEqualTo(now());
+        assertThat(created.getUpdated()).isNotNull().isBeforeOrEqualTo(now()).isAfterOrEqualTo(created.getCreated());
         assertThat(created.getText()).isEqualTo(note.getText());
         long id = created.getId();
+        OffsetDateTime createdTimestamp = created.getCreated();
         note = created;
+
+        // create another note
+        notesClient.create(new Note("Another Note"));
 
         // read
         Note loaded = notesClient.get(id);
         assertThat(loaded).isNotNull();
         assertThat(loaded.getId()).isNotNull();
         assertThat(loaded.getText()).isEqualTo(note.getText());
+        assertThat(loaded.getCreated()).isEqualTo(createdTimestamp);
 
         // list
         assertThat(notesClient.list()).isNotEmpty();
         assertThat(notesClient.list()).extracting(Note::getId).contains(id);
 
         // update
-        note.setText("Lorem ipsum dolor sit amet");
-        notesClient.update(note.getId(), note);
+        Note update = new Note("Lorem ipsum dolor sit amet");
+        notesClient.update(id, update);
 
         loaded = notesClient.get(id);
         assertThat(loaded).isNotNull();
         assertThat(loaded.getId()).isEqualTo(note.getId());
-        assertThat(loaded.getText()).isEqualTo(note.getText());
+        assertThat(loaded.getText()).isEqualTo(update.getText());
+        assertThat(loaded.getCreated()).isEqualTo(createdTimestamp);
 
         // delete
         notesClient.delete(id);

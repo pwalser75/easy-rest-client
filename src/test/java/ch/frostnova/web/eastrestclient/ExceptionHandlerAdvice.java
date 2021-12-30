@@ -36,6 +36,4 @@ public class ExceptionHandlerAdvice extends ResponseEntityExceptionHandler {
         String bodyOfResponse = ex.getMessage();
         return handleExceptionInternal(ex, bodyOfResponse, new HttpHeaders(), UNAUTHORIZED, request);
     }
-
-
 }

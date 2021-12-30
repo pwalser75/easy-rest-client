@@ -16,8 +16,8 @@ public class Note {
     @JsonProperty("created")
     private OffsetDateTime created;
 
-    @JsonProperty("lastModified")
-    private OffsetDateTime lastModified;
+    @JsonProperty("updated")
+    private OffsetDateTime updated;
 
     @JsonProperty("text")
     private String text;
@@ -54,12 +54,12 @@ public class Note {
         this.created = created;
     }
 
-    public OffsetDateTime getLastModified() {
-        return lastModified;
+    public OffsetDateTime getUpdated() {
+        return updated;
     }
 
-    public void setLastModified(OffsetDateTime lastModified) {
-        this.lastModified = lastModified;
+    public void setUpdated(OffsetDateTime updated) {
+        this.updated = updated;
     }
 
     @Override

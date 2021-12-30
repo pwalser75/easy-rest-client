@@ -49,39 +49,41 @@ public final class HttpErrorHandler {
         if (statusCodeCategory == 4 || statusCodeCategory == 5) {
             Response response = new ResponseAdapter(httpResponse);
             Response.Status status = Response.Status.fromStatusCode(statusCode);
+            String message = String.valueOf(httpResponse.body());
+            if (message.isBlank()) message = null;
 
             if (statusCodeCategory == 4) {
                 if (status == BAD_REQUEST) {
-                    throw new BadRequestException(response);
+                    throw new BadRequestException(message, response);
                 }
                 if (status == UNAUTHORIZED) {
-                    throw new NotAuthorizedException(response);
+                    throw new NotAuthorizedException(message, response);
                 }
                 if (status == FORBIDDEN) {
-                    throw new ForbiddenException(response);
+                    throw new ForbiddenException(message, response);
                 }
                 if (status == NOT_FOUND) {
-                    throw new NotFoundException(response);
+                    throw new NotFoundException(message, response);
                 }
                 if (status == METHOD_NOT_ALLOWED) {
-                    throw new NotAllowedException(response);
+                    throw new NotAllowedException(message, response);
                 }
                 if (status == NOT_ACCEPTABLE) {
-                    throw new NotAcceptableException(response);
+                    throw new NotAcceptableException(message, response);
                 }
                 if (status == UNSUPPORTED_MEDIA_TYPE) {
-                    throw new NotSupportedException(response);
+                    throw new NotSupportedException(message, response);
                 }
-                throw new ClientErrorException(response);
+                throw new ClientErrorException(message, response);
             }
             if (statusCodeCategory == 5) {
                 if (status == INTERNAL_SERVER_ERROR) {
-                    throw new InternalServerErrorException(response);
+                    throw new InternalServerErrorException(message, response);
                 }
                 if (status == SERVICE_UNAVAILABLE) {
-                    throw new ServiceUnavailableException(response);
+                    throw new ServiceUnavailableException(message, response);
                 }
-                throw new ServerErrorException(response);
+                throw new ServerErrorException(message, response);
             }
         }
     }
