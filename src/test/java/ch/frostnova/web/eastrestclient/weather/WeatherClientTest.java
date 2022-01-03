@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import javax.ws.rs.BadRequestException;
@@ -29,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 @ExtendWith(SpringExtension.class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@ContextConfiguration
 public class WeatherClientTest {
 
     private final Logger log = LoggerFactory.getLogger(getClass());
@@ -41,7 +43,6 @@ public class WeatherClientTest {
     @BeforeEach
     void init() {
         String baseUrl = String.format("http://localhost:%d/", port);
-        log.info("BASE URL: " + baseUrl);
 
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(1))

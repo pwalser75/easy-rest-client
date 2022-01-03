@@ -32,12 +32,10 @@ public class HelloClientTest {
     @BeforeEach
     void init() {
         baseUrl = String.format("http://localhost:%d/", port);
-        log.info("BASE URL: " + baseUrl);
     }
 
     @Test
     public void shouldSayHello() {
-
         HelloClient helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
 
         String messageEn = helloClient.hello("en", "world");
@@ -45,6 +43,23 @@ public class HelloClientTest {
 
         String messageDe = helloClient.hello("de", "Welt");
         assertThat(messageDe).isEqualTo("Hallo Welt");
+    }
+
+    @Test
+    public void shouldSayHelloWithDefault() {
+        HelloClient helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
+
+        String name = "Frank Drebin";
+        String hello = helloClient.hello(name);
+        assertThat(hello).endsWith(name);
+    }
+
+    @Test
+    public void shouldSayHelloWorld() {
+        HelloClient helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
+
+        String hello = helloClient.helloWorld();
+        assertThat(hello).isEqualTo("Hello World");
     }
 
     private HttpClient httpClient() {

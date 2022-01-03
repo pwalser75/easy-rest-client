@@ -11,27 +11,9 @@ import static java.util.Objects.requireNonNull;
 
 public class Temperature {
 
-    public enum Unit {
-        CELSIUS("°C"),
-        FARENHEIT("°F"),
-        KELVIN("K");
-
-        private final String display;
-
-        Unit(String display) {
-            this.display = display;
-        }
-
-        @Override
-        public String toString() {
-            return display;
-        }
-    }
-
     @JsonProperty("value")
     @JacksonXmlProperty(isAttribute = true)
     private final BigDecimal value;
-
     @JsonProperty("unit")
     @JacksonXmlProperty(isAttribute = true)
     private final Unit unit;
@@ -67,5 +49,22 @@ public class Temperature {
     @Override
     public int hashCode() {
         return Objects.hash(value, unit);
+    }
+
+    public enum Unit {
+        CELSIUS("°C"),
+        FARENHEIT("°F"),
+        KELVIN("K");
+
+        private final String display;
+
+        Unit(String display) {
+            this.display = display;
+        }
+
+        @Override
+        public String toString() {
+            return display;
+        }
     }
 }

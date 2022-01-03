@@ -7,7 +7,6 @@ import javax.ws.rs.POST;
 import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
 import java.util.List;
 
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -16,17 +15,14 @@ import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
 public interface NotesClient {
 
     @GET
-    @Produces(APPLICATION_JSON)
     List<Note> list();
 
     @GET
     @Path("/{id}")
-    @Produces(APPLICATION_JSON)
     Note get(@PathParam("id") long id);
 
     @POST
     @Consumes(APPLICATION_JSON)
-    @Produces(APPLICATION_JSON)
     Note create(Note note);
 
     @PUT

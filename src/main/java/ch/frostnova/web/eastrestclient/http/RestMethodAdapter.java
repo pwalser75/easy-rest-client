@@ -1,5 +1,6 @@
 package ch.frostnova.web.eastrestclient.http;
 
+import ch.frostnova.web.eastrestclient.util.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,8 +20,6 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.net.URI;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
@@ -28,6 +27,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static ch.frostnova.web.eastrestclient.util.StringUtil.urlEncode;
 import static java.util.stream.Collectors.joining;
 
 public class RestMethodAdapter {
@@ -52,9 +52,9 @@ public class RestMethodAdapter {
         for (int i = 0; i < parameters.length; i++) {
             arguments[i] = toArgument(i, parameterAnnotations[i]);
         }
-        logger.info("bound @{} {}.{}({}) -> {}", requestMethod,
+        logger.debug("bound @{} {}.{}({}) -> {}", requestMethod,
                 method.getDeclaringClass().getSimpleName(), method.getName(),
-                Arrays.stream(arguments).map(String::valueOf).collect(joining(", ")));
+                Arrays.stream(arguments).map(String::valueOf).collect(joining(", ")), method.getGenericReturnType());
     }
 
     private RequestMethod determineRequestMethod(Method method) {
@@ -158,7 +158,7 @@ public class RestMethodAdapter {
                         Optional.ofNullable(methodUriPath).map(Path::value).orElse(null)
                 )
                 .filter(Objects::nonNull)
-                .map(this::removeLeadingAndTrailingSlashes)
+                .map(StringUtil::removeLeadingAndTrailingSlashes)
                 .collect(joining("/"));
 
         // replace path parameters
@@ -180,25 +180,23 @@ public class RestMethodAdapter {
         return restAdapter.invoke(requestMethod, new URI(uriString), requestHeaders, consumes, produces, body, returnType);
     }
 
+    private enum RestMethodArgumentType {
+        HEADER_PARAM("@HeaderParam"),
+        PATH_PARAM("@PathParam"),
+        QUERY_PARAM("@QueryParam"),
+        FORM_PARAM("@FormParam"),
+        BODY("Body");
 
-    private String removeLeadingAndTrailingSlashes(String s) {
-        if (s == null) {
-            return null;
-        }
-        while (s.startsWith("/")) {
-            s = s.substring(1);
-        }
-        while (s.endsWith("/")) {
-            s = s.substring(0, s.length() - 1);
-        }
-        return s;
-    }
+        private String info;
 
-    private String urlEncode(Object value) {
-        if (value == null) {
-            return null;
+        RestMethodArgumentType(String info) {
+            this.info = info;
         }
-        return URLEncoder.encode(String.valueOf(value), StandardCharsets.ISO_8859_1);
+
+        @Override
+        public String toString() {
+            return info;
+        }
     }
 
     private static class RestMethodArgument {
@@ -221,25 +219,6 @@ public class RestMethodAdapter {
         @Override
         public String toString() {
             return name != null ? String.format("%s(\"%s\")", type, name) : type.toString();
-        }
-    }
-
-    private enum RestMethodArgumentType {
-        HEADER_PARAM("@HeaderParam"),
-        PATH_PARAM("@PathParam"),
-        QUERY_PARAM("@QueryParam"),
-        FORM_PARAM("@FormParam"),
-        BODY("Body");
-
-        private String info;
-
-        RestMethodArgumentType(String info) {
-            this.info = info;
-        }
-
-        @Override
-        public String toString() {
-            return info;
         }
     }
 }

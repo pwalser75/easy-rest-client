@@ -41,6 +41,7 @@ The following JAX-RS annotiations (package: `javax.ws.rs`) are already supported
 - [ ] `@FormParam` (on method)
 
 Supported content types:
+
 - [x] JSON (`application/json`)
 - [x] XML (`application/json`)
 - [x] TEXT (`text/plain`)
@@ -54,6 +55,7 @@ Let's say we want to use the following REST web service for reading and writing 
 ![](notes-rest-api.png)
 
 On the client side, we need to create
+
 - the required DTOs for the requests and responses
 - the service contract interface for the client, annotated with JAX-RS annotations
 
@@ -102,6 +104,8 @@ public interface NotesClient {
 }
 ```
 
+**HINT:** the `@Produces` annotation is _optional_ for the client, as the actual content type from the reponse headers is considered for the deserialization of structured data.
+
 The instance for this client would be created as follows:
 
 ```java
@@ -111,7 +115,8 @@ String baseUrl = "https://test.org";
 NotesClient notesClient = RestClient.build(httpClient, baseUrl, NotesClient.class);
 ```
 
-:magic_wand: This instance is a **proxy** for the service contract interface, backed by an **invocation handler** which processes the HTTP requests.
+:magic_wand: This instance is a **proxy** for the service contract interface, backed by an **invocation handler** which
+processes the HTTP requests.
 
 Using the client is then plain simple:
 
@@ -136,9 +141,42 @@ notesClient.update(note.getId(), note);
 notesClient.delete(id);
 ```
 
+## Support for default and static methods
+
+Since Java 8, interfaces can also have `default` and `static` methods. Rest client interfaces only need to provide
+JAX-RS annotations for all the _abstract_ interface methods, and can use additional `default` and `static` methods for more convenient access. 
+
+Example:
+
+```java
+public interface HelloClient {
+    
+  // the abstract interface methods are proxied for REST web calls
+  @GET
+  @Path("hello/{lang}")
+  String hello(@PathParam("lang") String lang, @QueryParam("name") String name);
+
+  // a convenience default method that uses the current user language
+  default String hello(String name) {
+    return hello(userLanguage(), name);
+  }
+
+  // a convenience default method with fixed arguments
+  default String helloWorld() {
+    return hello("en", "World");
+  }
+
+  // static method to determine the current user language
+  static String userLanguage() {
+    return Locale.getDefault().getLanguage();
+  }
+}
+```
 ## Logging
 
-The `RestAdapter` will log (over **SLF4J**) all requests and their responses using a **request sequence number** (so the request and response data can be correlated in the log even when multiple requests are performed concurrently), and indicate whether the communication was outbound (`>`) or inbound (`<`).
+The `RestAdapter` will log (over **SLF4J**) all requests and their responses using a **request sequence number** (so the
+request and response data can be correlated in the log even when multiple requests are performed concurrently), and
+indicate whether the communication was outbound (`>`) or inbound (`<`).
 
 ```text
 2021-12-30 12:34:56.797  INFO  RestAdapter  : 1 > POST http://localhost:32999/api/notes
@@ -155,6 +193,7 @@ The `RestAdapter` will log (over **SLF4J**) all requests and their responses usi
 2021-12-30 12:34:56.717  INFO  RestAdapter  : 3 < 200 OK
 2021-12-30 12:34:56.717  INFO  RestAdapter  : 3 < {"id":1000,"created":"2021-12-30T13:44:08.684402+01:00","updated":"2021-12-30T13:44:08.684402+01:00","text":"Aloha"}
 ```
+
 ## Build
 
 Build with Gradle Wrapper:

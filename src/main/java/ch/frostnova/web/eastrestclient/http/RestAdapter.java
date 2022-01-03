@@ -13,11 +13,14 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpClient;
+import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
@@ -39,14 +42,14 @@ public class RestAdapter {
         this.xml = requireNonNull(xml);
     }
 
-    private <B> String serializeBody(B body, Consumes consumes) throws JsonProcessingException {
+    private <B> String serializeBody(B body, String contentType) throws JsonProcessingException {
         if (body == null) {
             return null;
         }
-        if (Arrays.stream(consumes.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_JSON))) {
+        if (APPLICATION_JSON.equals(contentType)) {
             return json.writeValueAsString(body);
         }
-        if (Arrays.stream(consumes.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_XML))) {
+        if (APPLICATION_XML.equals(contentType)) {
             return xml.writeValueAsString(body);
         }
         return String.valueOf(body);
@@ -60,34 +63,44 @@ public class RestAdapter {
 
         logger.info("{} > {} {}", sequenceId, method, uri);
 
-        String serializedBody = serializeBody(body, consumes);
+        String consumesContentType = Optional.ofNullable(consumes).map(Consumes::value).map(Arrays::stream).flatMap(Stream::findFirst).orElse(null);
+        String serializedBody = serializeBody(body, consumesContentType);
 
         if (serializedBody != null) {
             logger.info("{} > {}", sequenceId, serializedBody);
         }
+        if (consumesContentType != null) {
+            headers.put("content-type", consumesContentType);
+        }
 
         HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(uri);
+        headers.forEach(requestBuilder::header);
+        headers.forEach((key, value) -> logger.info("{} > {}: {}", sequenceId, key, value));
+
         if (method == RequestMethod.GET) {
             requestBuilder.GET();
         }
         if (method == RequestMethod.POST) {
-            requestBuilder.header("content-type", consumes.value()[0])
-                    .POST(HttpRequest.BodyPublishers.ofString(serializedBody));
+            requestBuilder.POST(HttpRequest.BodyPublishers.ofString(serializedBody));
         }
         if (method == RequestMethod.PUT) {
-            requestBuilder.header("content-type", consumes.value()[0])
-                    .PUT(HttpRequest.BodyPublishers.ofString(serializedBody));
+            requestBuilder.PUT(HttpRequest.BodyPublishers.ofString(serializedBody));
         }
         if (method == RequestMethod.DELETE) {
             requestBuilder.DELETE();
         }
-        headers.forEach(requestBuilder::header);
 
         HttpRequest request = requestBuilder.build();
         HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-
         logger.info("{} < {} {}", sequenceId, response.statusCode(), Response.Status.fromStatusCode(response.statusCode()));
+        HttpHeaders responseHeaders = response.headers();
+        if (responseHeaders != null) {
+            responseHeaders.map().forEach((key, values) -> {
+                logger.info("{} < {}: {}", sequenceId, key, String.join(";", values));
+            });
+        }
+
         String plain = response.body();
         if (plain != null && plain.length() > 0) {
             logger.info("{} < {}", sequenceId, plain);
@@ -103,14 +116,15 @@ public class RestAdapter {
         if (String.class.equals(returnType)) {
             return (T) plain;
         }
-        if (produces == null) {
-            return null;
-        }
-        if (Arrays.stream(produces.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_JSON))) {
+        String contentType = Optional.ofNullable(responseHeaders)
+                .flatMap(h -> h.firstValue("content-type"))
+                .orElseThrow(() -> new UnsupportedOperationException("undisclosed content-type"));
+
+        if (APPLICATION_JSON.equals(contentType)) {
             JavaType javaType = json.getTypeFactory().constructType(returnType);
             return json.readValue(plain, javaType);
         }
-        if (Arrays.stream(produces.value()).anyMatch(mediaType -> mediaType.equals(APPLICATION_XML))) {
+        if (APPLICATION_XML.equals(contentType)) {
             JavaType javaType = xml.getTypeFactory().constructType(returnType);
             return xml.readValue(plain, javaType);
         }

@@ -39,7 +39,6 @@ public class NotesClientTest {
     @BeforeEach
     void init() {
         String baseUrl = String.format("http://localhost:%d/", port);
-        log.info("BASE URL: " + baseUrl);
 
         HttpClient httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(1))
