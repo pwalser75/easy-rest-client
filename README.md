@@ -1,6 +1,5 @@
 # Easy Rest Client
 
-:construction: **INCUBATION PROJECT** - :warning: *NOT FUNCTIONAL YET*
 
 **A new approach on writing REST web service clients using declarative interfaces with JAX-RS annotations.**
 
@@ -80,22 +79,22 @@ public class Note {
 public interface NotesClient {
 
     @GET
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces(APPLICATION_JSON)
     List<Note> list();
 
     @GET
     @Path("/{id}")
-    @Produces(MediaType.APPLICATION_JSON)
+    @Produces(APPLICATION_JSON)
     Note get(@PathParam("id") long id);
 
     @POST
-    @Consumes(MediaType.APPLICATION_JSON)
-    @Produces(MediaType.APPLICATION_JSON)
+    @Consumes(APPLICATION_JSON)
+    @Produces(APPLICATION_JSON)
     Note create(Note note);
 
     @PUT
     @Path("/{id}")
-    @Consumes(MediaType.APPLICATION_JSON)
+    @Consumes(APPLICATION_JSON)
     void update(@PathParam("id") long id, Note note);
 
     @DELETE
