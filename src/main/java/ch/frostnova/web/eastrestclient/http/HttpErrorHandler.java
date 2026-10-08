@@ -1,23 +1,23 @@
 package ch.frostnova.web.eastrestclient.http;
 
-import javax.ws.rs.BadRequestException;
-import javax.ws.rs.ClientErrorException;
-import javax.ws.rs.ForbiddenException;
-import javax.ws.rs.InternalServerErrorException;
-import javax.ws.rs.NotAcceptableException;
-import javax.ws.rs.NotAllowedException;
-import javax.ws.rs.NotAuthorizedException;
-import javax.ws.rs.NotFoundException;
-import javax.ws.rs.NotSupportedException;
-import javax.ws.rs.ServerErrorException;
-import javax.ws.rs.ServiceUnavailableException;
-import javax.ws.rs.core.EntityTag;
-import javax.ws.rs.core.GenericType;
-import javax.ws.rs.core.Link;
-import javax.ws.rs.core.MediaType;
-import javax.ws.rs.core.MultivaluedMap;
-import javax.ws.rs.core.NewCookie;
-import javax.ws.rs.core.Response;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.ClientErrorException;
+import jakarta.ws.rs.ForbiddenException;
+import jakarta.ws.rs.InternalServerErrorException;
+import jakarta.ws.rs.NotAcceptableException;
+import jakarta.ws.rs.NotAllowedException;
+import jakarta.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.NotFoundException;
+import jakarta.ws.rs.NotSupportedException;
+import jakarta.ws.rs.ServerErrorException;
+import jakarta.ws.rs.ServiceUnavailableException;
+import jakarta.ws.rs.core.EntityTag;
+import jakarta.ws.rs.core.GenericType;
+import jakarta.ws.rs.core.Link;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.MultivaluedMap;
+import jakarta.ws.rs.core.NewCookie;
+import jakarta.ws.rs.core.Response;
 import java.lang.annotation.Annotation;
 import java.net.URI;
 import java.net.http.HttpResponse;
@@ -26,15 +26,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
-import static javax.ws.rs.core.Response.Status.BAD_REQUEST;
-import static javax.ws.rs.core.Response.Status.FORBIDDEN;
-import static javax.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
-import static javax.ws.rs.core.Response.Status.METHOD_NOT_ALLOWED;
-import static javax.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
-import static javax.ws.rs.core.Response.Status.NOT_FOUND;
-import static javax.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
-import static javax.ws.rs.core.Response.Status.UNSUPPORTED_MEDIA_TYPE;
+import static jakarta.ws.rs.core.Response.Status.BAD_REQUEST;
+import static jakarta.ws.rs.core.Response.Status.FORBIDDEN;
+import static jakarta.ws.rs.core.Response.Status.INTERNAL_SERVER_ERROR;
+import static jakarta.ws.rs.core.Response.Status.METHOD_NOT_ALLOWED;
+import static jakarta.ws.rs.core.Response.Status.NOT_ACCEPTABLE;
+import static jakarta.ws.rs.core.Response.Status.NOT_FOUND;
+import static jakarta.ws.rs.core.Response.Status.SERVICE_UNAVAILABLE;
+import static jakarta.ws.rs.core.Response.Status.UNAUTHORIZED;
+import static jakarta.ws.rs.core.Response.Status.UNSUPPORTED_MEDIA_TYPE;
 
 public final class HttpErrorHandler {
 
@@ -42,15 +42,15 @@ public final class HttpErrorHandler {
 
     }
 
-    public static void checkResponse(HttpResponse<?> httpResponse) {
-        int statusCode = httpResponse.statusCode();
-        int statusCodeCategory = statusCode / 100;
+    public static void checkResponse(HttpResponse<?> httpResponse, String responseMessage) {
+        var statusCode = httpResponse.statusCode();
+        var statusCodeCategory = statusCode / 100;
 
         if (statusCodeCategory == 4 || statusCodeCategory == 5) {
-            Response response = new ResponseAdapter(httpResponse);
-            Response.Status status = Response.Status.fromStatusCode(statusCode);
-            String message = String.valueOf(httpResponse.body());
-            if (message.isBlank()) message = null;
+            Response response = new ResponseAdapter(httpResponse, responseMessage);
+            var status = Response.Status.fromStatusCode(statusCode);
+            var message = responseMessage;
+            if (message != null && message.isBlank()) message = null;
 
             if (statusCodeCategory == 4) {
                 if (status == BAD_REQUEST) {
@@ -91,9 +91,11 @@ public final class HttpErrorHandler {
     static class ResponseAdapter extends Response {
 
         private final HttpResponse<?> response;
+        private final String message;
 
-        public ResponseAdapter(HttpResponse<?> response) {
+        public ResponseAdapter(HttpResponse<?> response, String message) {
             this.response = response;
+            this.message = message;
         }
 
         @Override
@@ -103,12 +105,32 @@ public final class HttpErrorHandler {
 
         @Override
         public StatusType getStatusInfo() {
-            return Status.fromStatusCode(response.statusCode());
+            var code = response.statusCode();
+            var known = Status.fromStatusCode(code);
+            if (known != null) {
+                return known;
+            }
+            return new StatusType() {
+                @Override
+                public int getStatusCode() {
+                    return code;
+                }
+
+                @Override
+                public Status.Family getFamily() {
+                    return Status.Family.familyOf(code);
+                }
+
+                @Override
+                public String getReasonPhrase() {
+                    return "";
+                }
+            };
         }
 
         @Override
         public Object getEntity() {
-            return response.body();
+            return message;
         }
 
         @Override
@@ -133,7 +155,7 @@ public final class HttpErrorHandler {
 
         @Override
         public boolean hasEntity() {
-            return response.body() != null;
+            return message != null;
         }
 
         @Override

@@ -32,7 +32,7 @@ public class NoteServiceImpl implements NoteService {
     public Note save(Note note) {
 
         Note record;
-        OffsetDateTime now = OffsetDateTime.now();
+        var now = OffsetDateTime.now();
         if (note.getId() != null) {
             record = get(note.getId());
         } else {

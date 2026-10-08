@@ -2,6 +2,7 @@ package ch.frostnova.web.eastrestclient.util;
 
 import org.junit.jupiter.api.Test;
 
+import static ch.frostnova.web.eastrestclient.util.StringUtil.pathEncode;
 import static ch.frostnova.web.eastrestclient.util.StringUtil.removeLeadingAndTrailingSlashes;
 import static ch.frostnova.web.eastrestclient.util.StringUtil.urlEncode;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -39,6 +40,15 @@ public class StringUtilTest {
         assertThat(urlEncode("HelloWorld")).isEqualTo("HelloWorld");
         assertThat(urlEncode("Hello World")).isEqualTo("Hello+World");
         assertThat(urlEncode("Hello/World")).isEqualTo("Hello%2FWorld");
-        assertThat(urlEncode("Hello?Wörld")).isEqualTo("Hello%3FW%F6rld");
+        assertThat(urlEncode("Hello?Wörld")).isEqualTo("Hello%3FW%C3%B6rld");
+    }
+
+    @Test
+    void shouldPathEncode() {
+        assertThat(pathEncode(null)).isNull();
+        assertThat(pathEncode("HelloWorld")).isEqualTo("HelloWorld");
+        assertThat(pathEncode("Hello World")).isEqualTo("Hello%20World");
+        assertThat(pathEncode("Hello/World")).isEqualTo("Hello%2FWorld");
+        assertThat(pathEncode("Hello?Wörld")).isEqualTo("Hello%3FW%C3%B6rld");
     }
 }

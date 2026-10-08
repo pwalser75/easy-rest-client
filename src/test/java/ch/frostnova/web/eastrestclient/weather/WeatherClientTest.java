@@ -3,21 +3,19 @@ package ch.frostnova.web.eastrestclient.weather;
 
 import ch.frostnova.web.eastrestclient.RestClient;
 import ch.frostnova.web.eastrestclient.weather.api.WeatherClient;
-import ch.frostnova.web.eastrestclient.weather.api.WeatherForecast;
-import ch.frostnova.web.eastrestclient.weather.api.WeatherForecastDay;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import javax.ws.rs.BadRequestException;
-import javax.ws.rs.NotAllowedException;
-import javax.ws.rs.NotAuthorizedException;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.NotAllowedException;
+import jakarta.ws.rs.NotAuthorizedException;
 import java.net.http.HttpClient;
 import java.time.Duration;
 import java.util.UUID;
@@ -42,9 +40,9 @@ public class WeatherClientTest {
 
     @BeforeEach
     void init() {
-        String baseUrl = String.format("http://localhost:%d/", port);
+        var baseUrl = String.format("http://localhost:%d/", port);
 
-        HttpClient httpClient = HttpClient.newBuilder()
+        var httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(1))
                 .build();
 
@@ -54,8 +52,8 @@ public class WeatherClientTest {
     @Test
     void shouldGetWeatherForecast() {
 
-        String apiKey = UUID.randomUUID().toString();
-        WeatherForecast weatherForecast = weatherClient.getForecast(apiKey, "Winterthur");
+        var apiKey = UUID.randomUUID().toString();
+        var weatherForecast = weatherClient.getForecast(apiKey, "Winterthur");
 
         assertThat(weatherForecast).isNotNull();
         assertThat(weatherForecast.getLocation()).isEqualTo("Winterthur");
@@ -67,7 +65,7 @@ public class WeatherClientTest {
         });
 
         System.out.println(weatherForecast.getLocation());
-        for (WeatherForecastDay weatherForecastDay : weatherForecast.getDays()) {
+        for (var weatherForecastDay : weatherForecast.getDays()) {
             System.out.printf("- %s: %s, %s\n", weatherForecastDay.getLocalDate(), weatherForecastDay.getCondition(), weatherForecastDay.getTemperature());
         }
     }

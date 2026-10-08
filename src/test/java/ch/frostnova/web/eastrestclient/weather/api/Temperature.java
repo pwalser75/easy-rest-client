@@ -11,10 +11,8 @@ import static java.util.Objects.requireNonNull;
 
 public class Temperature {
 
-    @JsonProperty("value")
     @JacksonXmlProperty(isAttribute = true)
     private final BigDecimal value;
-    @JsonProperty("unit")
     @JacksonXmlProperty(isAttribute = true)
     private final Unit unit;
 

@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
-import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static org.springframework.http.MediaType.APPLICATION_XML_VALUE;
@@ -33,11 +32,11 @@ public class WeatherForecastController {
         if (apiKey == null || apiKey.isBlank()) {
             throw new SecurityException("Access denied, api-key is required");
         }
-        WeatherForecast weatherForecast = new WeatherForecast();
+        var weatherForecast = new WeatherForecast();
         weatherForecast.setLocation(location);
-        Random random = ThreadLocalRandom.current();
+        var random = ThreadLocalRandom.current();
         for (int i = 0; i < 5; i++) {
-            WeatherForecastDay weatherForecastDay = new WeatherForecastDay();
+            var weatherForecastDay = new WeatherForecastDay();
             weatherForecastDay.setLocalDate(LocalDate.now().plusDays(i));
             weatherForecastDay.setCondition(Condition.values()[random.nextInt(Condition.values().length)]);
             weatherForecastDay.setTemperature(new Temperature(random.nextDouble() * 50 - 18, Temperature.Unit.CELSIUS));

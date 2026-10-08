@@ -1,6 +1,5 @@
 # Easy Rest Client
 
-
 **A new approach on writing REST web service clients using declarative interfaces with JAX-RS annotations.**
 
 ## Idea
@@ -17,35 +16,34 @@ The idea for the Easy Rest Client is as follows:
 
 ## Technology choices
 
-- **Web Service Annotations** for the REST client: **JAX-RS API**. <br>
-  Reason: simple API, lightweight, and considered a standard (Java EE) and interoperable (Spring Web annotations are too
-  Spring-centric).
+- **Web Service Annotations** for the REST client: **Jakarta REST (JAX-RS) API** (package `jakarta.ws.rs`). <br>
+  Reason: simple API, lightweight, and considered a standard (Jakarta EE) and interoperable (Spring Web annotations are
+  too Spring-centric).
 - **HTTP Client**: `java.net.http.HttpClient` (built-in since Java 11). <br>
   Reason: available in Java standard Library, so no additional libraries are required.
 
 ## JAX-RS Annotation Support
 
-The following JAX-RS annotiations (package: `javax.ws.rs`) are already supported:
+The following JAX-RS annotations (package: `jakarta.ws.rs`) are supported:
 
-- [x] `@Path` (on class or method)
-- [x] `@GET` (on method)
-- [x] `@POST` (on method)
-- [x] `@PUT` (on method)
-- [x] `@DELETE` (on method)
-- [x] `@Consumes` (on method)
-- [x] `@Produces` (on method)
+- [x] `@Path` (on class or method) — see [Class-level annotations](docs/class-level-annotations.md)
+- [x] `@GET` / `@POST` / `@PUT` / `@DELETE` (on method) — see [HTTP methods and paths](docs/request-methods.md)
+- [x] `@Consumes` / `@Produces` (on class or method) — see [Class-level annotations](docs/class-level-annotations.md)
 - [x] `@PathParam` (on method)
 - [x] `@QueryParam` (on method)
 - [x] `@HeaderParam` (on method)
-- [ ] `@FormParam` (on method)
+- [x] `@FormParam` (on method) — see [Form data](docs/content-form.md)
+
+Parameter binding (including collections and arrays) is described in [Parameters](docs/parameters.md).
 
 Supported content types:
 
-- [x] JSON (`application/json`)
-- [x] XML (`application/json`)
-- [x] TEXT (`text/plain`)
-- [ ] Multipart/Form data
-- [ ] Binary formats
+- [x] JSON (`application/json`) — see [JSON](docs/content-json.md)
+- [x] XML (`application/xml`) — see [XML](docs/content-xml.md)
+- [x] TEXT (`text/plain`) — see [Plain text](docs/content-text.md)
+- [x] Form data (`application/x-www-form-urlencoded`) — see [Form data](docs/content-form.md)
+- [x] Multipart/Form data (`multipart/form-data`) — see [Multipart form data](docs/content-multipart.md)
+- [x] Binary formats (`application/octet-stream`, streamed) — see [Binary content and streaming](docs/content-binary.md)
 
 ## Example Usage
 
@@ -108,10 +106,10 @@ public interface NotesClient {
 The instance for this client would be created as follows:
 
 ```java
-HttpClient httpClient = HttpClient.newBuilder().build();
-String baseUrl = "https://test.org";
+var httpClient = HttpClient.newBuilder().build();
+var baseUrl = "https://test.org";
 
-NotesClient notesClient = RestClient.build(httpClient, baseUrl, NotesClient.class);
+var notesClient = RestClient.build(httpClient, baseUrl, NotesClient.class);
 ```
 
 :magic_wand: This instance is a **proxy** for the service contract interface, backed by an **invocation handler** which
@@ -120,17 +118,17 @@ processes the HTTP requests.
 Using the client is then plain simple:
 
 ```java
-Note note = new Note();
+var note = new Note();
 note.setText("Aloha");
 
 // create
-Note created = notesClient.create(note);
+var created = notesClient.create(note);
 
 // read
-Note loaded = notesClient.get(id);
+var loaded = notesClient.get(id);
 
 // list
-List<Note> notes = notesClient.list();
+var notes = notesClient.list();
 
 // update
 note.setText("Lorem ipsum dolor sit amet");
@@ -140,63 +138,54 @@ notesClient.update(note.getId(), note);
 notesClient.delete(id);
 ```
 
-## Support for default and static methods
+## Examples
 
-Since Java 8, interfaces can also have `default` and `static` methods. Rest client interfaces only need to provide
-JAX-RS annotations for all the _abstract_ interface methods, and can use additional `default` and `static` methods for more convenient access. 
+The following examples illustrate the individual use cases:
 
-Example:
+- [HTTP methods and paths](docs/request-methods.md) — `@GET`, `@POST`, `@PUT`, `@DELETE`, `@Path`
+- [Parameters](docs/parameters.md) — `@PathParam`, `@QueryParam`, `@HeaderParam`, `@FormParam`, body and sink arguments
+- [JSON](docs/content-json.md) — `application/json` request and response bodies
+- [XML](docs/content-xml.md) — `application/xml` request and response bodies
+- [Plain text](docs/content-text.md) — `text/plain` request and response bodies
+- [Form data](docs/content-form.md) — `application/x-www-form-urlencoded`
+- [Multipart form data](docs/content-multipart.md) — `multipart/form-data`
+- [Binary content and streaming](docs/content-binary.md) — `application/octet-stream`, sinks and temp files
+- [Class-level annotations](docs/class-level-annotations.md) — `@Path`, `@Consumes`, `@Produces` on the interface
+- [Error handling](docs/error-handling.md) — mapping of HTTP error statuses to JAX-RS exceptions
+- [Default and static methods](docs/default-and-static-methods.md) — convenience methods on client interfaces
+- [Interface validation](docs/validation.md) — rules invalid client interfaces must follow
 
-```java
-public interface HelloClient {
-    
-  // the abstract interface methods are proxied for REST web calls
-  @GET
-  @Path("hello/{lang}")
-  String hello(@PathParam("lang") String lang, @QueryParam("name") String name);
-
-  // a convenience default method that uses the current user language
-  default String hello(String name) {
-    return hello(userLanguage(), name);
-  }
-
-  // a convenience default method with fixed arguments
-  default String helloWorld() {
-    return hello("en", "World");
-  }
-
-  // static method to determine the current user language
-  static String userLanguage() {
-    return Locale.getDefault().getLanguage();
-  }
-}
-```
 ## Logging
 
-The `RestAdapter` will log (over **SLF4J**) all requests and their responses using a **request sequence number** (so the
-request and response data can be correlated in the log even when multiple requests are performed concurrently), and
-indicate whether the communication was outbound (`>`) or inbound (`<`).
+The `RestAdapter` logs over **SLF4J**.
+
+On **INFO**, one summary line per request with the HTTP method, the URL, the response status code and reason phrase,
+and the elapsed time in milliseconds (with 2 decimals):
 
 ```text
-2021-12-30 12:34:56.797  INFO  RestAdapter  : 1 > POST http://localhost:32999/api/notes
-2021-12-30 12:34:56.711  INFO  RestAdapter  : 1 > {"text":"Aloha"}
-2021-12-30 12:34:56.701  INFO  RestAdapter  : 1 < 201 Created
-2021-12-30 12:34:56.702  INFO  RestAdapter  : 1 < {"id":1000,"created":"2021-12-30T13:44:08.684402+01:00","updated":"2021-12-30T13:44:08.684402+01:00","text":"Aloha"}
+22021-12-30 12:34:56.710 [DEBUG] RestAdapter: GET http://localhost:32999/api/notes/1000 -> 200 OK, 4.27 ms
+```
 
-2021-12-30 12:34:56.709  INFO  RestAdapter  : 2 > POST http://localhost:32999/api/notes
-2021-12-30 12:34:56.709  INFO  RestAdapter  : 2 > {"text":"Another Note"}
-2021-12-30 12:34:56.713  INFO  RestAdapter  : 2 < 201 Created
-2021-12-30 12:34:56.713  INFO  RestAdapter  : 2 < {"id":1001,"created":"2021-12-30T13:44:08.711746+01:00","updated":"2021-12-30T13:44:08.711746+01:00","text":"Another Note"}
+On **DEBUG**, the request and response details, using a **request sequence number** (so request and response data can
+be correlated in the log even when multiple requests are performed concurrently), indicating whether the communication
+was outbound (`>`) or inbound (`<`):
 
-2021-12-30 12:34:56.713  INFO  RestAdapter  : 3 > GET http://localhost:32999/api/notes/1000
-2021-12-30 12:34:56.717  INFO  RestAdapter  : 3 < 200 OK
-2021-12-30 12:34:56.717  INFO  RestAdapter  : 3 < {"id":1000,"created":"2021-12-30T13:44:08.684402+01:00","updated":"2021-12-30T13:44:08.684402+01:00","text":"Aloha"}
+```text
+2021-12-30 12:34:56.701 [DEBUG] RestAdapter: 1 > POST http://localhost:32999/api/notes
+2021-12-30 12:34:56.702 [DEBUG] RestAdapter: 1 > content-type: application/json
+2021-12-30 12:34:56.702 [DEBUG] RestAdapter: 1 > {"text":"Aloha"}
+2021-12-30 12:34:56.709 [DEBUG] RestAdapter: 1 < 201 Created
+2021-12-30 12:34:56.710 [DEBUG] RestAdapter: 1 < content-type: application/json
+2021-12-30 12:34:56.710 [DEBUG] RestAdapter: 1 < {"id":1000,"created":"2021-12-30T13:44:08.684402+01:00","updated":"2021-12-30T13:44:08.684402+01:00","text":"Aloha"}
 ```
 
 ## Build
 
-Build with Gradle Wrapper:
+Build with Maven (requires JDK 17 or later; the build targets Java 17):
 
 ```bsh
-./gradlew
+mvn clean install
 ```
+
+`clean install` is the default build: it compiles the code, runs the tests, and installs the jar (plus the sources and
+javadoc jars) into the local Maven repository. Use `mvn test` to only run the tests.

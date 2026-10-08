@@ -1,36 +1,38 @@
 package ch.frostnova.web.eastrestclient.http;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.ws.rs.core.Response;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.Produces;
-import javax.ws.rs.core.Response;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpClient;
-import java.net.http.HttpHeaders;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.util.Arrays;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
+import static ch.frostnova.web.eastrestclient.http.MediaTypes.APPLICATION_JSON;
+import static ch.frostnova.web.eastrestclient.http.MediaTypes.APPLICATION_XML;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
-import static javax.ws.rs.core.MediaType.APPLICATION_JSON;
-import static javax.ws.rs.core.MediaType.APPLICATION_XML;
 
 public class RestAdapter {
 
-    private final static AtomicInteger requestSequence = new AtomicInteger();
+    private static final AtomicInteger requestSequence = new AtomicInteger();
 
-    private final static Logger logger = LoggerFactory.getLogger(RestAdapter.class);
+    private static final Logger logger = LoggerFactory.getLogger(RestAdapter.class);
+
+    private static final String CONTENT_TYPE = "content-type";
 
     private final HttpClient httpClient;
     private final ObjectMapper json;
@@ -42,92 +44,163 @@ public class RestAdapter {
         this.xml = requireNonNull(xml);
     }
 
-    private <B> String serializeBody(B body, String contentType) throws JsonProcessingException {
-        if (body == null) {
-            return null;
-        }
-        if (APPLICATION_JSON.equals(contentType)) {
-            return json.writeValueAsString(body);
-        }
-        if (APPLICATION_XML.equals(contentType)) {
-            return xml.writeValueAsString(body);
-        }
-        return String.valueOf(body);
+    ObjectMapper getJson() {
+        return json;
     }
 
-    public <B, T> T invoke(RequestMethod method, URI uri, Map<String, String> headers,
-                           Consumes consumes, Produces produces,
-                           B body, Type returnType) throws IOException, InterruptedException {
+    ObjectMapper getXml() {
+        return xml;
+    }
 
-        int sequenceId = requestSequence.incrementAndGet();
+    public Object invoke(RequestMethod method, URI uri, Map<String, List<String>> headers,
+                         RequestBody body, Type returnType, ResponseSink sink) throws IOException, InterruptedException {
 
-        logger.info("{} > {} {}", sequenceId, method, uri);
+        var sequenceId = requestSequence.incrementAndGet();
+        logger.debug("{} > {} {}", sequenceId, method, uri);
 
-        String consumesContentType = Optional.ofNullable(consumes).map(Consumes::value).map(Arrays::stream).flatMap(Stream::findFirst).orElse(null);
-        String serializedBody = serializeBody(body, consumesContentType);
+        var sendsBody = method == RequestMethod.POST || method == RequestMethod.PUT;
 
-        if (serializedBody != null) {
-            logger.info("{} > {}", sequenceId, serializedBody);
+        var requestBuilder = HttpRequest.newBuilder().uri(uri);
+        headers.forEach((key, values) -> values.forEach(value -> {
+            requestBuilder.header(key, value);
+            logger.debug("{} > {}: {}", sequenceId, key, value);
+        }));
+        if (sendsBody && body.isPresent() && body.getContentType() != null) {
+            requestBuilder.header(CONTENT_TYPE, body.getContentType());
+            logger.debug("{} > {}: {}", sequenceId, CONTENT_TYPE, body.getContentType());
         }
-        if (consumesContentType != null) {
-            headers.put("content-type", consumesContentType);
-        }
-
-        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder().uri(uri);
-        headers.forEach(requestBuilder::header);
-        headers.forEach((key, value) -> logger.info("{} > {}: {}", sequenceId, key, value));
-
-        if (method == RequestMethod.GET) {
-            requestBuilder.GET();
-        }
-        if (method == RequestMethod.POST) {
-            requestBuilder.POST(HttpRequest.BodyPublishers.ofString(serializedBody));
-        }
-        if (method == RequestMethod.PUT) {
-            requestBuilder.PUT(HttpRequest.BodyPublishers.ofString(serializedBody));
-        }
-        if (method == RequestMethod.DELETE) {
-            requestBuilder.DELETE();
+        if (sendsBody && body.getDescription() != null) {
+            logger.debug("{} > {}", sequenceId, body.getDescription());
         }
 
-        HttpRequest request = requestBuilder.build();
-        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-        logger.info("{} < {} {}", sequenceId, response.statusCode(), Response.Status.fromStatusCode(response.statusCode()));
-        HttpHeaders responseHeaders = response.headers();
-        if (responseHeaders != null) {
-            responseHeaders.map().forEach((key, values) -> {
-                logger.info("{} < {}: {}", sequenceId, key, String.join(";", values));
-            });
+        var publisher = body.isPresent() ? body.getPublisher() : HttpRequest.BodyPublishers.noBody();
+        switch (method) {
+            case GET:
+                requestBuilder.GET();
+                break;
+            case POST:
+                requestBuilder.POST(publisher);
+                break;
+            case PUT:
+                requestBuilder.PUT(publisher);
+                break;
+            case DELETE:
+                requestBuilder.DELETE();
+                break;
+            default:
+                throw new UnsupportedOperationException("unsupported request method: " + method);
         }
 
-        String plain = response.body();
-        if (plain != null && plain.length() > 0) {
-            logger.info("{} < {}", sequenceId, plain);
+        var request = requestBuilder.build();
+        var startNanos = System.nanoTime();
+        if (sink.isPresent()) {
+            return executeStreaming(request, sink, sequenceId, startNanos);
         }
-        HttpErrorHandler.checkResponse(response);
-        if (plain == null || plain.length() == 0) {
+        return executeBuffered(request, returnType, sequenceId, startNanos);
+    }
+
+    private Object executeBuffered(HttpRequest request, Type returnType, int sequenceId, long startNanos) throws IOException, InterruptedException {
+
+        var response = httpClient.send(request, HttpResponse.BodyHandlers.ofByteArray());
+        var body = response.body();
+        var contentType = response.headers().firstValue(CONTENT_TYPE).orElse(null);
+        var charset = MediaTypes.charset(contentType, UTF_8);
+        logResponse(sequenceId, response, body, charset);
+        logRequestSummary(request, response.statusCode(), startNanos);
+
+        var message = body != null && body.length > 0 ? new String(body, charset) : null;
+        HttpErrorHandler.checkResponse(response, message);
+
+        if (body == null || body.length == 0) {
             return null;
         }
-
-        if (Void.class.equals(returnType)) {
+        if (Void.class.equals(returnType) || void.class.equals(returnType)) {
             return null;
         }
         if (String.class.equals(returnType)) {
-            return (T) plain;
+            return new String(body, charset);
         }
-        String contentType = Optional.ofNullable(responseHeaders)
-                .flatMap(h -> h.firstValue("content-type"))
-                .orElseThrow(() -> new UnsupportedOperationException("undisclosed content-type"));
+        if (MediaTypes.matches(contentType, APPLICATION_JSON)) {
+            var javaType = json.getTypeFactory().constructType(returnType);
+            return json.readValue(body, javaType);
+        }
+        if (MediaTypes.matches(contentType, APPLICATION_XML)) {
+            var javaType = xml.getTypeFactory().constructType(returnType);
+            return xml.readValue(body, javaType);
+        }
+        if (MediaTypes.matches(contentType, "text/*")) {
+            return new String(body, charset);
+        }
+        throw new UnsupportedOperationException("unsupported response media type: " + contentType + " for " + returnType);
+    }
 
-        if (APPLICATION_JSON.equals(contentType)) {
-            JavaType javaType = json.getTypeFactory().constructType(returnType);
-            return json.readValue(plain, javaType);
+    private Object executeStreaming(HttpRequest request, ResponseSink sink, int sequenceId, long startNanos) throws IOException, InterruptedException {
+
+        var response = httpClient.send(request, HttpResponse.BodyHandlers.ofInputStream());
+        var contentType = response.headers().firstValue(CONTENT_TYPE).orElse(null);
+        var charset = MediaTypes.charset(contentType, UTF_8);
+        logResponseHeaders(sequenceId, response);
+
+        try (var in = response.body()) {
+            try {
+                if (response.statusCode() / 100 == 4 || response.statusCode() / 100 == 5) {
+                    var errorBody = in.readAllBytes();
+                    var message = errorBody.length > 0 ? new String(errorBody, charset) : null;
+                    HttpErrorHandler.checkResponse(response, message);
+                }
+                copy(in, sink);
+            } finally {
+                logRequestSummary(request, response.statusCode(), startNanos);
+            }
         }
-        if (APPLICATION_XML.equals(contentType)) {
-            JavaType javaType = xml.getTypeFactory().constructType(returnType);
-            return xml.readValue(plain, javaType);
+        logger.debug("{} < <{}>", sequenceId, sink.getKind().name().toLowerCase());
+        switch (sink.getKind()) {
+            case PATH:
+                return sink.getPath();
+            case FILE:
+                return sink.getFile();
+            default:
+                return null;
         }
-        throw new UnsupportedOperationException("unknown or unsupported media type: " + produces + ", " + returnType);
+    }
+
+    private void copy(InputStream in, ResponseSink sink) throws IOException {
+        switch (sink.getKind()) {
+            case OUTPUT_STREAM:
+                in.transferTo(sink.getOutputStream());
+                break;
+            case PATH:
+                try (var out = Files.newOutputStream(sink.getPath())) {
+                    in.transferTo(out);
+                }
+                break;
+            case FILE:
+                try (var out = Files.newOutputStream(sink.getFile().toPath())) {
+                    in.transferTo(out);
+                }
+                break;
+            default:
+                throw new UnsupportedOperationException("unsupported response sink: " + sink.getKind());
+        }
+    }
+
+    private void logRequestSummary(HttpRequest request, int statusCode, long startNanos) {
+        var elapsedMillis = (System.nanoTime() - startNanos) / 1_000_000.0;
+        var status = Response.Status.fromStatusCode(statusCode);
+        var statusText = status != null ? statusCode + " " + status.getReasonPhrase() : String.valueOf(statusCode);
+        logger.info("{} {} -> {}, {} ms", request.method(), request.uri(), statusText,
+                String.format(Locale.ROOT, "%.2f", elapsedMillis));
+    }
+
+    private void logResponse(int sequenceId, HttpResponse<?> response, byte[] body, Charset charset) {
+        logResponseHeaders(sequenceId, response);
+        if (body != null && body.length > 0) {
+            logger.debug("{} < {}", sequenceId, new String(body, charset));
+        }
+    }
+
+    private void logResponseHeaders(int sequenceId, HttpResponse<?> response) {
+        logger.debug("{} < {} {}", sequenceId, response.statusCode(), Response.Status.fromStatusCode(response.statusCode()));
+        response.headers().map().forEach((key, values) -> logger.debug("{} < {}: {}", sequenceId, key, String.join(";", values)));
     }
 }

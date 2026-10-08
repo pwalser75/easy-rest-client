@@ -7,7 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.web.server.LocalServerPort;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.net.http.HttpClient;
@@ -36,29 +36,29 @@ public class HelloClientTest {
 
     @Test
     public void shouldSayHello() {
-        HelloClient helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
+        var helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
 
-        String messageEn = helloClient.hello("en", "world");
+        var messageEn = helloClient.hello("en", "world");
         assertThat(messageEn).isEqualTo("Hello world");
 
-        String messageDe = helloClient.hello("de", "Welt");
+        var messageDe = helloClient.hello("de", "Welt");
         assertThat(messageDe).isEqualTo("Hallo Welt");
     }
 
     @Test
     public void shouldSayHelloWithDefault() {
-        HelloClient helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
+        var helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
 
-        String name = "Frank Drebin";
-        String hello = helloClient.hello(name);
+        var name = "Frank Drebin";
+        var hello = helloClient.hello(name);
         assertThat(hello).endsWith(name);
     }
 
     @Test
     public void shouldSayHelloWorld() {
-        HelloClient helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
+        var helloClient = RestClient.build(httpClient(), baseUrl, HelloClient.class);
 
-        String hello = helloClient.helloWorld();
+        var hello = helloClient.helloWorld();
         assertThat(hello).isEqualTo("Hello World");
     }
 

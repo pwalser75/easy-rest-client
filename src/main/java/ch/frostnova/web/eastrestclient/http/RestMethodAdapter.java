@@ -1,69 +1,92 @@
 package ch.frostnova.web.eastrestclient.http;
 
 import ch.frostnova.web.eastrestclient.util.StringUtil;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.FormParam;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.HeaderParam;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.ws.rs.Consumes;
-import javax.ws.rs.DELETE;
-import javax.ws.rs.FormParam;
-import javax.ws.rs.GET;
-import javax.ws.rs.HeaderParam;
-import javax.ws.rs.POST;
-import javax.ws.rs.PUT;
-import javax.ws.rs.Path;
-import javax.ws.rs.PathParam;
-import javax.ws.rs.Produces;
-import javax.ws.rs.QueryParam;
+import java.io.File;
+import java.io.OutputStream;
 import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.lang.reflect.Type;
 import java.net.URI;
+import java.nio.charset.Charset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Stream;
 
+import static ch.frostnova.web.eastrestclient.util.StringUtil.pathEncode;
 import static ch.frostnova.web.eastrestclient.util.StringUtil.urlEncode;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.joining;
 
 public class RestMethodAdapter {
 
-    private Logger logger = LoggerFactory.getLogger(RestMethodAdapter.class);
+    private static final Logger logger = LoggerFactory.getLogger(RestMethodAdapter.class);
 
     private final Method method;
     private final Type returnType;
+    private final Class<?> rawReturnType;
     private final RequestMethod requestMethod;
     private final RestMethodArgument[] arguments;
+
+    private final String classPath;
+    private final String methodPath;
+    private final String consumes;
+    private final String produces;
 
     public RestMethodAdapter(Method method) {
         this.method = method;
         returnType = method.getGenericReturnType();
+        rawReturnType = method.getReturnType();
 
         requestMethod = determineRequestMethod(method);
 
-        Parameter[] parameters = method.getParameters();
-        Annotation[][] parameterAnnotations = method.getParameterAnnotations();
+        classPath = Optional.ofNullable(method.getDeclaringClass().getAnnotation(Path.class)).map(Path::value).orElse(null);
+        methodPath = Optional.ofNullable(method.getAnnotation(Path.class)).map(Path::value).orElse(null);
+        consumes = firstMediaType(firstNonNull(method.getAnnotation(Consumes.class),
+                method.getDeclaringClass().getAnnotation(Consumes.class)));
+        produces = firstMediaType(firstNonNull(method.getAnnotation(Produces.class),
+                method.getDeclaringClass().getAnnotation(Produces.class)));
+
+        var parameters = method.getParameters();
+        var parameterAnnotations = method.getParameterAnnotations();
 
         arguments = new RestMethodArgument[parameters.length];
         for (int i = 0; i < parameters.length; i++) {
-            arguments[i] = toArgument(i, parameterAnnotations[i]);
+            arguments[i] = toArgument(i, parameters[i], parameterAnnotations[i]);
         }
+        validateArguments();
+
         logger.debug("bound @{} {}.{}({}) -> {}", requestMethod,
                 method.getDeclaringClass().getSimpleName(), method.getName(),
                 Arrays.stream(arguments).map(String::valueOf).collect(joining(", ")), method.getGenericReturnType());
     }
 
     private RequestMethod determineRequestMethod(Method method) {
-        GET getRequest = method.getAnnotation(GET.class);
-        POST postRequest = method.getAnnotation(POST.class);
-        PUT putRequest = method.getAnnotation(PUT.class);
-        DELETE deleteRequest = method.getAnnotation(DELETE.class);
+        var getRequest = method.getAnnotation(GET.class);
+        var postRequest = method.getAnnotation(POST.class);
+        var putRequest = method.getAnnotation(PUT.class);
+        var deleteRequest = method.getAnnotation(DELETE.class);
 
-        long matchingAnnotations = Stream.of(getRequest, postRequest, putRequest, deleteRequest).filter(Objects::nonNull).count();
+        var matchingAnnotations = Stream.of(getRequest, postRequest, putRequest, deleteRequest).filter(Objects::nonNull).count();
         if (matchingAnnotations > 1) {
             throw new UnsupportedOperationException(String.format("multiple request method annotations found on method %s", method));
         }
@@ -85,13 +108,13 @@ public class RestMethodAdapter {
         throw new UnsupportedOperationException(String.format("unsupported request method on method %s, only GET,POST,PUT,DELETE are supported", method));
     }
 
-    private RestMethodArgument toArgument(int index, Annotation[] annotations) {
-        Optional<HeaderParam> headerParam = getAnnotation(HeaderParam.class, annotations);
-        Optional<PathParam> pathParam = getAnnotation(PathParam.class, annotations);
-        Optional<QueryParam> queryParam = getAnnotation(QueryParam.class, annotations);
-        Optional<FormParam> formParam = getAnnotation(FormParam.class, annotations);
+    private RestMethodArgument toArgument(int index, Parameter parameter, Annotation[] annotations) {
+        var headerParam = getAnnotation(HeaderParam.class, annotations);
+        var pathParam = getAnnotation(PathParam.class, annotations);
+        var queryParam = getAnnotation(QueryParam.class, annotations);
+        var formParam = getAnnotation(FormParam.class, annotations);
 
-        long matchingAnnotations = Stream.of(headerParam, pathParam, queryParam, formParam).filter(Optional::isPresent).count();
+        var matchingAnnotations = Stream.of(headerParam, pathParam, queryParam, formParam).filter(Optional::isPresent).count();
         if (matchingAnnotations > 1) {
             throw new UnsupportedOperationException("more than one param annotation on argument " + index + " on method " + method);
         }
@@ -107,7 +130,35 @@ public class RestMethodAdapter {
         if (formParam.isPresent()) {
             return new RestMethodArgument(RestMethodArgumentType.FORM_PARAM, formParam.get().value());
         }
+        if (isDownloadSink(parameter.getType())) {
+            return new RestMethodArgument(RestMethodArgumentType.RESPONSE_SINK, null);
+        }
         return new RestMethodArgument(RestMethodArgumentType.BODY, null);
+    }
+
+    private boolean isDownloadSink(Class<?> type) {
+        if (OutputStream.class.isAssignableFrom(type)) {
+            return true;
+        }
+        if (java.nio.file.Path.class.equals(type) || File.class.equals(type)) {
+            return consumes == null;
+        }
+        return false;
+    }
+
+    private void validateArguments() {
+        var bodies = Arrays.stream(arguments).filter(a -> a.getType() == RestMethodArgumentType.BODY).count();
+        if (bodies > 1) {
+            throw new UnsupportedOperationException("more than one body argument on method " + method);
+        }
+        var hasForm = Arrays.stream(arguments).anyMatch(a -> a.getType() == RestMethodArgumentType.FORM_PARAM);
+        if (hasForm && bodies > 0) {
+            throw new UnsupportedOperationException("cannot combine @FormParam arguments with a body argument on method " + method);
+        }
+        var sinks = Arrays.stream(arguments).filter(a -> a.getType() == RestMethodArgumentType.RESPONSE_SINK).count();
+        if (sinks > 1) {
+            throw new UnsupportedOperationException("more than one response sink argument on method " + method);
+        }
     }
 
     private <T> Optional<T> getAnnotation(Class<T> type, Annotation[] annotations) {
@@ -118,66 +169,166 @@ public class RestMethodAdapter {
     }
 
     public Object invoke(RestAdapter restAdapter, String baseUrl, Object[] methodCallArguments) throws Throwable {
-        Map<String, String> requestHeaders = new HashMap<>();
-        Map<String, String> pathParameters = new HashMap<>();
-        Map<String, String> queryParameters = new HashMap<>();
-        Object body = null;
+        var requestHeaders = new HashMap<String, List<String>>();
+        var pathParameters = new HashMap<String, String>();
+        var queryParameters = new HashMap<String, List<String>>();
+        var formFields = new ArrayList<FormField>();
+        Object entity = null;
+        var sink = ResponseSink.none();
 
         if (methodCallArguments != null) {
             for (int i = 0; i < methodCallArguments.length; i++) {
-                RestMethodArgument argument = arguments[i];
-                Object value = methodCallArguments[i];
-                if (value != null) {
-                    if (argument.getType() == RestMethodArgumentType.HEADER_PARAM) {
-                        requestHeaders.put(argument.getName(), String.valueOf(value));
-                    }
-                    if (argument.getType() == RestMethodArgumentType.PATH_PARAM) {
+                var argument = arguments[i];
+                var value = methodCallArguments[i];
+                if (value == null) {
+                    continue;
+                }
+                switch (argument.getType()) {
+                    case HEADER_PARAM:
+                        for (var item : valuesOf(value)) {
+                            requestHeaders.computeIfAbsent(argument.getName(), key -> new ArrayList<>()).add(String.valueOf(item));
+                        }
+                        break;
+                    case PATH_PARAM:
                         pathParameters.put(argument.getName(), String.valueOf(value));
-                    }
-                    if (argument.getType() == RestMethodArgumentType.QUERY_PARAM) {
-                        queryParameters.put(argument.getName(), String.valueOf(value));
-                    }
-                    if (argument.getType() == RestMethodArgumentType.FORM_PARAM) {
-                        // TODO
-                    }
-                    if (argument.getType() == RestMethodArgumentType.BODY) {
-                        body = value;
-                    }
+                        break;
+                    case QUERY_PARAM:
+                        for (var item : valuesOf(value)) {
+                            queryParameters.computeIfAbsent(argument.getName(), key -> new ArrayList<>()).add(String.valueOf(item));
+                        }
+                        break;
+                    case FORM_PARAM:
+                        formFields.add(new FormField(argument.getName(), value));
+                        break;
+                    case RESPONSE_SINK:
+                        sink = toSink(value);
+                        break;
+                    case BODY:
+                        entity = value;
+                        break;
+                    default:
+                        throw new UnsupportedOperationException("unsupported argument type: " + argument.getType());
                 }
             }
         }
 
-        Path classUriPath = method.getDeclaringClass().getAnnotation(Path.class);
-        Path methodUriPath = method.getAnnotation(Path.class);
+        var acceptHeaderPresent = requestHeaders.keySet().stream().anyMatch("accept"::equalsIgnoreCase);
+        if (produces != null && !acceptHeaderPresent) {
+            requestHeaders.computeIfAbsent("accept", key -> new ArrayList<>()).add(produces);
+        }
 
-        Consumes consumes = method.getAnnotation(Consumes.class);
-        Produces produces = method.getAnnotation(Produces.class);
+        var uri = buildUri(baseUrl, pathParameters, queryParameters);
+        var charset = MediaTypes.charset(consumes, UTF_8);
+        var requestBody = buildRequestBody(restAdapter, formFields, entity, charset);
 
-        String uriString = Stream.of(baseUrl,
-                        Optional.ofNullable(classUriPath).map(Path::value).orElse(null),
-                        Optional.ofNullable(methodUriPath).map(Path::value).orElse(null)
-                )
+        var responseSink = sink;
+        var temporarySink = false;
+        if (!responseSink.isPresent()) {
+            responseSink = toTempFileSink();
+            temporarySink = responseSink.isPresent();
+        }
+
+        try {
+            return restAdapter.invoke(requestMethod, uri, requestHeaders, requestBody, returnType, responseSink);
+        } catch (Exception ex) {
+            if (temporarySink) {
+                deleteTemporarySink(responseSink);
+            }
+            throw ex;
+        }
+    }
+
+    private void deleteTemporarySink(ResponseSink sink) {
+        try {
+            if (sink.getKind() == ResponseSink.Kind.PATH) {
+                java.nio.file.Files.deleteIfExists(sink.getPath());
+            } else if (sink.getKind() == ResponseSink.Kind.FILE) {
+                java.nio.file.Files.deleteIfExists(sink.getFile().toPath());
+            }
+        } catch (java.io.IOException ignored) {
+            // best effort cleanup
+        }
+    }
+
+    private RequestBody buildRequestBody(RestAdapter restAdapter, List<FormField> formFields, Object entity, Charset charset)
+            throws java.io.IOException {
+        if (!formFields.isEmpty()) {
+            if (MediaTypes.matches(consumes, MediaTypes.MULTIPART_FORM_DATA)) {
+                return RequestBodyFactory.encodeMultipart(formFields, restAdapter.getJson(), charset);
+            }
+            return RequestBodyFactory.encodeForm(formFields, charset);
+        }
+        return RequestBodyFactory.encode(entity, consumes, restAdapter.getJson(), restAdapter.getXml(), charset);
+    }
+
+    private ResponseSink toSink(Object value) {
+        if (value instanceof java.nio.file.Path) {
+            return ResponseSink.toPath((java.nio.file.Path) value);
+        }
+        if (value instanceof File) {
+            return ResponseSink.toFile((File) value);
+        }
+        if (value instanceof OutputStream) {
+            return ResponseSink.toOutputStream((OutputStream) value);
+        }
+        return ResponseSink.none();
+    }
+
+    private ResponseSink toTempFileSink() throws java.io.IOException {
+        if (java.nio.file.Path.class.equals(rawReturnType)) {
+            return ResponseSink.toPath(java.nio.file.Files.createTempFile("easy-rest-client-", ".download"));
+        }
+        if (File.class.equals(rawReturnType)) {
+            return ResponseSink.toFile(java.nio.file.Files.createTempFile("easy-rest-client-", ".download").toFile());
+        }
+        return ResponseSink.none();
+    }
+
+    private URI buildUri(String baseUrl, Map<String, String> pathParameters, Map<String, List<String>> queryParameters) {
+        var uriString = Stream.of(baseUrl, classPath, methodPath)
                 .filter(Objects::nonNull)
                 .map(StringUtil::removeLeadingAndTrailingSlashes)
                 .collect(joining("/"));
 
-        // replace path parameters
-        // TODO: String conversion of parameters: non-trivial types, collections, ...
         for (String param : pathParameters.keySet()) {
-            uriString = uriString.replace("{" + param + "}", urlEncode(pathParameters.get(param)));
+            uriString = uriString.replace("{" + param + "}", pathEncode(pathParameters.get(param)));
         }
-
         if (!queryParameters.isEmpty()) {
             uriString = uriString + "?" + queryParameters.entrySet().stream()
-                    .map(e -> urlEncode(e.getKey()) + "=" + urlEncode(e.getValue()))
+                    .flatMap(entry -> entry.getValue().stream()
+                            .map(value -> urlEncode(entry.getKey()) + "=" + urlEncode(value)))
                     .collect(joining("&"));
         }
+        return URI.create(uriString);
+    }
 
-        // TODO: check if exactly one request type is present, otherwise throw an exception.
-        // TODO: check if the path is present, otherwise throw an exception.
-        // TODO: also consider path as class annotation (counts as base plus optional method path)
+    private static <T> T firstNonNull(T first, T second) {
+        return first != null ? first : second;
+    }
 
-        return restAdapter.invoke(requestMethod, new URI(uriString), requestHeaders, consumes, produces, body, returnType);
+    private static List<?> valuesOf(Object value) {
+        if (value instanceof Iterable) {
+            var values = new ArrayList<>();
+            ((Iterable<?>) value).forEach(values::add);
+            return values;
+        }
+        if (value.getClass().isArray()) {
+            var length = java.lang.reflect.Array.getLength(value);
+            var values = new ArrayList<>(length);
+            for (int i = 0; i < length; i++) {
+                values.add(java.lang.reflect.Array.get(value, i));
+            }
+            return values;
+        }
+        return List.of(value);
+    }
+
+    private static String firstMediaType(Consumes consumes) {
+        return consumes != null && consumes.value().length > 0 ? consumes.value()[0] : null;
+    }
+
+    private static String firstMediaType(Produces produces) {
+        return produces != null && produces.value().length > 0 ? produces.value()[0] : null;
     }
 
     private enum RestMethodArgumentType {
@@ -185,6 +336,7 @@ public class RestMethodAdapter {
         PATH_PARAM("@PathParam"),
         QUERY_PARAM("@QueryParam"),
         FORM_PARAM("@FormParam"),
+        RESPONSE_SINK("ResponseSink"),
         BODY("Body");
 
         private String info;

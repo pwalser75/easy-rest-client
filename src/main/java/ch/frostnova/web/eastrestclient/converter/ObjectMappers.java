@@ -28,7 +28,7 @@ public final class ObjectMappers {
     }
 
     public static ObjectMapper xml() {
-        JacksonXmlModule xmlModule = new JacksonXmlModule();
+        var xmlModule = new JacksonXmlModule();
         xmlModule.setDefaultUseWrapper(false);
         return configure(new XmlMapper(xmlModule));
     }
